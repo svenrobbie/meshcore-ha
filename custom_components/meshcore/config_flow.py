@@ -83,7 +83,6 @@ from .const import (
     DEFAULT_TCP_PORT,
     DOMAIN,
     MIN_UPDATE_INTERVAL,
-    NEW_ENTRY_TRAFFIC_POLICY,
     NodeType,
 )
 from .radio import RadioSession
@@ -180,6 +179,8 @@ async def validate_common(api: RadioSession) -> dict[str, Any]:
         
         # If we get here, the connection was successful and we got valid info
         return {"title": f"MeshCore Node {device_name}", "name": device_name, "pubkey": public_key}
+    except CannotConnect:
+        raise
     except TimeoutError as ex:
         raise CannotConnect("Connection timed out") from ex
     except Exception as ex:
@@ -411,7 +412,6 @@ class MeshCoreConfigFlow(config_entries.ConfigFlow, domain=DOMAIN): # type: igno
                 CONF_REPEATER_SUBSCRIPTIONS: [],
                 CONF_TRACKED_CLIENTS: [],
                 CONF_MAP_UPLOAD_ENABLED: False,
-                CONF_TRAFFIC_POLICY: NEW_ENTRY_TRAFFIC_POLICY,
             },
         )
 
