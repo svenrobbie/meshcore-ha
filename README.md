@@ -15,7 +15,7 @@ The full documentation is at **[meshcore-dev.github.io/meshcore-ha](https://mesh
 
 ## What is new in 3.0
 
-- **Mesh Traffic Policy.** New installs get a fixed budget for flood traffic for each companion. This protects the shared mesh. See [Mesh Traffic Policy](https://meshcore-dev.github.io/meshcore-ha/docs/ha/traffic-policy).
+- **Mesh traffic is unmetered.** Polls and sends are not held back by integration budgets.
 - **Most options apply without a reload**, including add, edit and remove of tracked nodes.
 - **Event changes.** Each `meshcore_*` event has `entry_id` and `device_id`. Outgoing message events changed, and a failed send fires `meshcore_message_send_failed`.
 - **Secrets stay hidden.** Events and MQTT raw payloads do not contain channel secrets, unless you enable **Expose Node Secrets in Events**.

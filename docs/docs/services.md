@@ -59,23 +59,16 @@ See also [Two or more companions](multiple-companions.md).
 
 ## Traffic policy and service calls
 
-Under the Governed traffic policy, each metered call takes one credit from a lane before it sends. A service call does not wait for credit. If the lane is empty, the call fails at once with this error:
+Mesh traffic budgets are disabled, so service calls are not refused for lack of credit.
 
 ```
-Mesh traffic messages lane is empty; try again in 60 seconds
-```
-
-The number of seconds is the time to the next credit of the lane: a maximum of 180 (flood), 30 (direct) or 60 (messages). See [Mesh Traffic Policy: When a lane is empty](traffic-policy.md#when-a-lane-runs-dry).
+The former lane error is no longer raised. See [Mesh Traffic Policy](traffic-policy.md).
 
 | Service | Lane | Event when the lane is empty |
 |---|---|---|
-| `send_message`, `send_channel_message`, `send_ui_message` | Messages | `meshcore_message_send_failed` with `reason: traffic_policy` |
-| `trace` | Messages | None |
-| `execute_command`, `execute_command_ui` | Depends on the command. See [CLI Command Reference: Traffic policy](cli-commands.md#traffic-policy). | None. The CLI Console does not record the command. |
+| `send_message`, `send_channel_message`, `send_ui_message`, `trace`, `execute_command`, `execute_command_ui` | No traffic budget | None |
 
-The error stops the automation. To continue, set `continue_on_error: true` on the action. See [Automation](automation.md#continue-when-the-traffic-policy-refuses-a-send).
-
-Installs from 2.x that still use the deprecated [Legacy traffic policy](legacy-traffic-policy.md) do not meter service calls.
+Automations are not stopped by traffic budget errors.
 
 ## Send Message
 
@@ -101,7 +94,7 @@ data:
 
 The service returns when the companion accepts the message. It does not wait for the acknowledgement (ACK). The ACK wait is 1.2 times the timeout that the companion suggests, or 12 seconds if the companion gives no value. For the events that follow, see [Message event order](events.md#message-event-order).
 
-If the message does not leave the companion, the integration fires `meshcore_message_send_failed`. The service call does not fail, except for `traffic_policy`. For an alert, see [Automation: Alert when a send fails](automation.md#alert-when-a-send-fails).
+If the message does not leave the companion, the integration fires `meshcore_message_send_failed`. For an alert, see [Automation: Alert when a send fails](automation.md#alert-when-a-send-fails).
 
 | `reason` | Cause |
 |---|---|
@@ -110,7 +103,6 @@ If the message does not leave the companion, the integration fires `meshcore_mes
 | `rejected` | The companion refused the message. `detail` gives the firmware reason. |
 | `send_failed` | An exception occurred. `detail` gives the text. |
 | `too_long` | The text is over 160 bytes. The call also fails. |
-| `traffic_policy` | The messages lane is empty. The call also fails. |
 
 - The firmware refuses a direct message over 160 bytes (UTF-8) instead of cutting it, so the integration checks the length first and fails the call with the size and the limit. Without that check the radio reports the refusal as a full contact table, which does not name the real cause. A direct message carries no name prefix, so the whole 160 bytes are yours.
 - There is no `truncate` option here, unlike [Send Channel Message](#send-channel-message): the radio never sends part of an over-long direct message, so cutting one would invent a message the radio would not have sent.
@@ -330,7 +322,7 @@ response_variable: result
 - If the contact has no known route, the integration first sends a path discovery and waits 15 to 30 seconds. The full call can then take approximately 90 seconds.
 - The wait for the reply is `timeout`, a minimum of 5 seconds and a maximum of 60.
 - Routes with hop hashes of 1 to 4 bytes are supported.
-- Under Governed, the trace takes one credit from the messages lane. The path discovery does not take a separate credit.
+- Trace requests are not metered by the integration.
 
 ```json
 {"trace": {"hops": 3, "path": [{"hash": "a1", "snr": 6.25}, {"hash": "de", "snr": 4.5}, {"hash": "a1", "snr": 5.0}, {"snr": 7.0}], "round_trip_ms": 3412, "final_snr": 7.0, "tag": 123456789}}

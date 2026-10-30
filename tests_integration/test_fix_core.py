@@ -135,7 +135,7 @@ async def test_contact_lastmod_update_rearms(mesh, monkeypatch):
     _assert_rearmed(coordinator)
 
 
-async def test_governed_loops_disable_once_and_stop_polling(mesh, monkeypatch, caplog):
+async def test_governed_loops_keep_polling_idle_nodes(mesh, monkeypatch, caplog):
     coordinator = mesh.coordinator
     coordinator._manual_mode_initialized = True
     coordinator._device_info_initialized = True
@@ -149,10 +149,9 @@ async def test_governed_loops_disable_once_and_stop_polling(mesh, monkeypatch, c
     await coordinator._async_update_data()
     await coordinator._async_update_data()
     await asyncio.sleep(0)
-    status.assert_not_called()
-    telemetry.assert_not_called()
-    assert caplog.text.count("Automatically disabling") == 2
-    assert "Edit the node or wait for its next advert to resume." in caplog.text
+    assert status.call_count == 2
+    assert telemetry.call_count == 4
+    assert "Automatically disabling" not in caplog.text
 
 
 def test_partial_refill_remaining_time_and_legacy_spacing(monkeypatch):

@@ -92,7 +92,7 @@ A channel message event has a `repeats_observable` field. It is `false` when the
 
 ### meshcore_message_send_failed
 
-The message services fire this event when a message does not leave the companion. The `reason` field is `contact_not_found`, `traffic_policy`, `rejected`, `send_failed` or `not_connected`. Only `traffic_policy` also raises an error in the service call. For all fields, see [Events](events.md).
+The message services fire this event when a message does not leave the companion. The `reason` field is `contact_not_found`, `rejected`, `send_failed` or `not_connected`. For all fields, see [Events](events.md).
 
 ```yaml
 triggers:

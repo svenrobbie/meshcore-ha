@@ -200,31 +200,21 @@ async def test_legacy_never_meters_service_calls(
     assert legacy.coordinator._rate_limiter.get_tokens() == 0
 
 
-async def test_governed_charges_a_direct_message_and_defers_when_short(
+async def test_governed_does_not_limit_direct_messages(
     hass: HomeAssistant, governed: SimpleNamespace
 ) -> None:
-    """The send is charged to the message lane; a dry lane refuses, never queues."""
+    """The send succeeds even when the former message lane is empty."""
     governed.radio.script[governed.radio.key("send_msg", CONTACT, "hi")] = Event(
         EventType.MSG_SENT, {"expected_ack": b"\x01\x02\x03\x04", "suggested_timeout": 80}
     )
-    before = _credits(governed, LANE_MESSAGES)
+    _drain(governed, LANE_MESSAGES)
 
     await hass.services.async_call(
         DOMAIN, SERVICE_SEND_MESSAGE, {ATTR_PUBKEY_PREFIX: PREFIX, ATTR_MESSAGE: "hi"},
         blocking=True,
     )
-    assert _credits(governed, LANE_MESSAGES) == before - 1
+    assert _credits(governed, LANE_MESSAGES) == 0
     assert governed.coordinator._rate_limiter.get_tokens() == 20
-
-    _drain(governed, LANE_MESSAGES)
-    with pytest.raises(HomeAssistantError) as refused:
-        await hass.services.async_call(
-            DOMAIN, SERVICE_SEND_MESSAGE, {ATTR_PUBKEY_PREFIX: PREFIX, ATTR_MESSAGE: "hi"},
-            blocking=True,
-        )
-    assert refused.value.translation_key == "traffic_deferred"
-    assert refused.value.translation_placeholders["lane"] == LANE_MESSAGES
-    assert "seconds" in refused.value.translation_placeholders
 
 
 async def test_governed_charges_a_channel_message_to_the_message_lane(

@@ -30,14 +30,13 @@ The node must be in the contact list of the companion. If a repeater is only a d
 | **Telemetry Refresh Rate (seconds)** | 7200 | The interval for all polls of this node. Minimum 300. |
 | **Disable Path Reset** | Off | Do not reset the route to this node after failures. See [Route reset](#route-reset). |
 
-When you select **Submit**, the integration logs in to the node with the password and asks for the firmware version. Each request costs one credit. If no credit is available for the version query, the integration skips it. The first status poll is due at once. The integration keeps the password for later logins.
+When you select **Submit**, the integration logs in to the node with the password and asks for the firmware version. The first status poll is due at once. The integration keeps the password for later logins.
 
 | Error | Cause |
 |---|---|
 | `Repeater is already configured` | The node is a tracked node already. |
 | `Device not connected. Please ensure the MeshCore device is connected.` | The companion is not connected. |
 | `Contact not found` | The node is not in the contact list of the companion. |
-| `Mesh traffic <lane> lane is empty. Try again in <seconds> seconds.` | The lane has no credit for the login. |
 | `Failed to log in to repeater. Check password and try again.` | The node refused the login, or did not answer. |
 
 ## Add Tracked Client
@@ -107,7 +106,7 @@ sequenceDiagram
     end
 ```
 
-Every poll costs one credit from a lane of the traffic budget. A poll with no credit waits for credit. It is not a failure. For the lanes and the requests that cost credit, see [Mesh Traffic Policy](traffic-policy.md). For installs from 2.x that still use the deprecated Legacy policy, see [Legacy traffic policy](legacy-traffic-policy.md).
+Polls run on the configured schedule without integration traffic budgets. If a node does not answer, retry timing applies.
 
 ## Failures
 
@@ -125,7 +124,7 @@ The integration logs in to a node again before a status poll when the node has 5
 
 ### Auto-disable
 
-If a tracked node has no successful request for 120 hours, the integration stops all its polls. The node resumes when you edit it or when the companion hears its next advert. See [Auto-disable](traffic-policy.md#auto-disable).
+The integration does not automatically disable a tracked node after a period without successful requests.
 
 ## Devices and entities
 

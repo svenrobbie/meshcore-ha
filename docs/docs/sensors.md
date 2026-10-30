@@ -73,7 +73,7 @@ Example: `sensor.meshcore_abc123_battery_voltage_mynode`.
 
 ### Request Rate Limiter
 
-The state is the credits in the direct lane (0 to 20). For the attributes, see [Mesh Traffic Policy](traffic-policy.md#watching-the-budget). For the state on installs from 2.x that still use the deprecated Legacy policy, see [Legacy traffic policy](legacy-traffic-policy.md).
+This legacy sensor remains for entity compatibility. Traffic budgets are disabled, so its state does not indicate a limit on requests.
 
 ### Companion Prefix
 
@@ -289,7 +289,7 @@ The location accuracy is 10 m when the reading gives no accuracy. Attributes: `p
 | CLI Run Command | `button.meshcore_<pk6>_cli_run` | None (hidden) | When **Enable CLI Console** is set |
 | CLI Clear Console | `button.meshcore_<pk6>_cli_clear` | None (hidden) | When **Enable CLI Console** is set |
 
-A press of **Refresh firmware version** costs one credit. If the lane has no credit, the press fails with an error.
+**Refresh firmware version** sends a query without an integration traffic budget.
 
 ## CLI Console sensor
 

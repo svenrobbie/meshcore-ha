@@ -68,7 +68,7 @@ For BLE, the integration scans for 5 seconds. If it finds devices with "MeshCore
 
 All three forms also have Enable Self Telemetry, Enable Self Diagnostics, their intervals and Contact Discovery Mode. You can change these later in [Global Settings](#global-settings).
 
-A new entry gets the title `MeshCore Node <name>`, the **Governed** traffic policy and no tracked nodes. See [Mesh Traffic Policy](traffic-policy.md). To add tracked nodes, see [Remote Node Tracking](remote-device-tracking.md).
+A new entry gets the title `MeshCore Node <name>` and no tracked nodes. To add tracked nodes, see [Remote Node Tracking](remote-device-tracking.md).
 
 ## Reconfigure the connection
 
@@ -130,7 +130,6 @@ Most changes apply immediately, without a reload. A change to **Enable Self Diag
 | Expose Node Secrets in Events | on / off | off | Sends channel secrets and private key exports to the event bus and MQTT raw payloads |
 | Auto-Remove Stale Neighbors | on / off | off | Removes neighbor entries and their sensors, one time each day, after the threshold |
 | Stale Neighbor Threshold (days) | 1 to 365 | 7 | The age for the neighbor cleanup |
-| Mesh Traffic Policy | Governed | Governed | The budget and the retry rules for mesh traffic. See [Mesh Traffic Policy](traffic-policy.md). |
 
 CAUTION: Do not enable **Expose Node Secrets in Events** on a system that other people can read. All users and tools that read the event bus or the MQTT broker will see the secrets.
 

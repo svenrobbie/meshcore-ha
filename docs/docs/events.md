@@ -306,7 +306,7 @@ The integration fires `meshcore_message_sent` when the companion accepts a messa
 
 ## meshcore_message_send_failed
 
-The integration fires `meshcore_message_send_failed` when a message did not leave the companion. The service call does not raise an error, except for `traffic_policy` and `too_long`.
+The integration fires `meshcore_message_send_failed` when a message did not leave the companion. The service call does not raise an error, except for `too_long`.
 
 | Field | Type | Present | Description |
 |---|---|---|---|
@@ -315,7 +315,7 @@ The integration fires `meshcore_message_send_failed` when a message did not leav
 | `timestamp` | integer | Always | Unix seconds |
 | `target` | string | Direct only | The requested recipient, for example `node_id 'myclient'` or `public key 'def456'` |
 | `channel_idx` | integer | Channel only | The requested channel index |
-| `detail` | string | `rejected`, `send_failed`, `traffic_policy`, `too_long` | The text from the firmware, the library or the traffic policy. For `too_long`: the size and the limit in bytes. |
+| `detail` | string | `rejected`, `send_failed`, `too_long` | The text from the firmware or the library. For `too_long`: the size and the limit in bytes. |
 | `entry_id`, `device_id` | string | Always | See [Which companion fired the event](#which-companion-fired-the-event) |
 
 | `reason` | Cause | Service call |
@@ -324,7 +324,6 @@ The integration fires `meshcore_message_send_failed` when a message did not leav
 | `not_connected` | The companion is not connected | Returns |
 | `rejected` | The firmware refused the message | Returns |
 | `send_failed` | The send raised an exception | Returns |
-| `traffic_policy` | The messages lane has no credit. See [Mesh Traffic Policy](traffic-policy.md). | Raises an error |
 | `too_long` | The text is over the byte budget. Channel: only when `truncate` is off. See [Send Channel Message](services.md#send-channel-message). | Raises an error |
 
 No event fires when `entry_id` does not exist, or when a `send_message` call has no recipient.

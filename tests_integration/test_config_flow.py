@@ -57,8 +57,7 @@ async def test_user_flow_tcp_creates_entry(
     assert result["data"][CONF_CONNECTION_TYPE] == CONNECTION_TYPE_TCP
     assert result["data"][CONF_TCP_HOST] == "10.0.0.5"
     assert result["data"][CONF_TCP_PORT] == 5000
-    # New installs run governed; entries without the setting stay on legacy.
-    assert result["options"]["traffic_policy"] == "governed"
+    assert "traffic_policy" not in result["options"]
 
 
 async def test_user_flow_cannot_connect(

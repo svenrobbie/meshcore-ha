@@ -590,8 +590,7 @@ def _apply_node_edit(coordinator: Any, old: Any, new: Any) -> None:
 
     if old == new:
         return
-    if coordinator.settings.traffic_policy == "governed":
-        coordinator.seed_tracked_node(new.pubkey_prefix)
+    coordinator.seed_tracked_node(new.pubkey_prefix)
     if not isinstance(new, RepeaterConfig):
         return
     if new.neighbors_enabled and not old.neighbors_enabled:

@@ -74,7 +74,7 @@ No `meshcore_cli_response` event fires, and the CLI Console does not record the 
 
 ## Traffic policy
 
-Under the Governed traffic policy, these commands take one credit from a lane before they send. If the lane is empty, the call fails with `Mesh traffic <lane> lane is empty; try again in <seconds> seconds`. See [Mesh Traffic Policy](traffic-policy.md).
+These commands are not limited by an integration traffic budget.
 
 | Command | Lane |
 |---|---|
@@ -87,7 +87,6 @@ These commands also wait for the single request slot of the companion if another
 
 The integration does not meter other commands. A message that you send with `send_msg` or `send_chan_msg` fires no message event. Use [`send_message`](services.md#send-message) and [`send_channel_message`](services.md#send-channel-message) instead.
 
-Installs from 2.x that still use the deprecated [Legacy traffic policy](legacy-traffic-policy.md) do not meter commands.
 
 ## Other rules
 

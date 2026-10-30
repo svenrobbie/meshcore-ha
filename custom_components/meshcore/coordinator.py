@@ -13,7 +13,6 @@ from typing import Any
 from cachetools import LRUCache, TTLCache
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
@@ -24,7 +23,6 @@ from meshcore.events import Event, EventType
 from .config import Settings, get_conf
 from .const import (
     ADVERT_PATH_CACHE_MAX_SIZE,
-    AUTO_DISABLE_HOURS,
     CLI_CONSOLE_MAX_LINES,
     CONF_CLIENT_DISABLE_PATH_RESET,
     CONF_CLIENT_UPDATE_INTERVAL,
@@ -63,10 +61,8 @@ from .traffic import (
     Lane,
     MeshBudget,
     TrafficPolicy,
-    auto_disable_applies,
     backoff_delay,
     classify_lane,
-    denial_counts_as_failure,
     heals_path,
     iso_timestamp,
     resolve_policy,
@@ -846,24 +842,11 @@ class MeshCoreDataUpdateCoordinator(DataUpdateCoordinator):
 
         Frozen under legacy, where service calls have never touched the budget.
         """
-        if self._traffic_policy != POLICY_GOVERNED:
-            return 0.0
-        if self._rate_limiter.try_consume(lane):
-            return 0.0
-        return self._rate_limiter.next_eligible(lane)
+        return 0.0
 
     def require_mesh_budget(self, lane: Lane) -> None:
         """Charge an interactive mesh send, refusing the call when credit is short."""
-        wait = self.check_interactive_budget(lane)
-        if not wait:
-            return
-        seconds = max(1, int(wait))
-        raise HomeAssistantError(
-            f"Mesh traffic {lane} lane is empty; try again in {seconds} seconds",
-            translation_domain=DOMAIN,
-            translation_key="traffic_deferred",
-            translation_placeholders={"lane": lane, "seconds": str(seconds)},
-        )
+        return
 
     def deferred_nodes(self) -> list[dict[str, Any]]:
         """Return the nodes whose next poll is still waiting on a lane."""
@@ -1240,8 +1223,6 @@ class MeshCoreDataUpdateCoordinator(DataUpdateCoordinator):
 
     def rearm_heard_node(self, public_key: str) -> None:
         """Resume governed polling when an auto-disabled tracked node advertises."""
-        if self._traffic_policy != POLICY_GOVERNED:
-            return
         for prefix in tuple(self._auto_disabled_devices):
             if public_key.startswith(prefix):
                 self.seed_tracked_node(prefix)
@@ -1352,16 +1333,10 @@ class MeshCoreDataUpdateCoordinator(DataUpdateCoordinator):
 
         def charge_page(_page: int) -> bool:
             """Pay for one more page; legacy paid for the whole scan up front."""
-            if self._traffic_policy != POLICY_GOVERNED:
-                return True
-            return self._rate_limiter.try_consume(lane)
+            return True
 
         try:
             # Legacy pays one token for the whole scan; governed pays per page.
-            if not self._rate_limiter.try_consume(lane):
-                self.logger.debug(f"Rate limited: skipping neighbor fetch for {repeater_name}")
-                return
-
             self.logger.debug(f"Fetching neighbors for repeater {repeater_name} ({pubkey_prefix})")
             result = await self.api.fetch_neighbours(
                 contact,
@@ -1671,17 +1646,6 @@ class MeshCoreDataUpdateCoordinator(DataUpdateCoordinator):
             ):
                 self.logger.info(f"Attempting login to repeater {repeater_name} after {failure_count} failures")
 
-                if not self._rate_limiter.try_consume(lane):
-                    self.logger.debug(f"Rate limited: skipping login to {repeater_name}")
-                    if denial_counts_as_failure(self._traffic_policy):
-                        # Legacy has never counted this one against the
-                        # consecutive counter, only against the reliability stat.
-                        self._increment_failure(pubkey_prefix)
-                        self._apply_backoff(pubkey_prefix, failure_count + 1, update_interval)
-                    else:
-                        self._defer_node(pubkey_prefix, repeater_name, lane, OP_STATUS)
-                    return
-
                 try:
                     login_result = await self.api.login(
                         contact,
@@ -1706,16 +1670,6 @@ class MeshCoreDataUpdateCoordinator(DataUpdateCoordinator):
                 await asyncio.sleep(1)
 
             self.logger.debug(f"Sending status request to repeater: {repeater_name} ({pubkey_prefix})")
-
-            if not self._rate_limiter.try_consume(lane):
-                self.logger.debug(f"Rate limited: skipping status request to {repeater_name}")
-                if denial_counts_as_failure(self._traffic_policy):
-                    await self._record_node_failure(
-                        pubkey_prefix, failure_count + 1, update_interval, "repeater"
-                    )
-                else:
-                    self._defer_node(pubkey_prefix, repeater_name, lane, OP_STATUS)
-                return
 
             self._begin_attempt(pubkey_prefix, OP_STATUS)
             status_event = await self.api.req_status(contact)
@@ -1807,7 +1761,7 @@ class MeshCoreDataUpdateCoordinator(DataUpdateCoordinator):
         Governed only. The burst costs one flood credit however many discoveries
         it sends, and stops at the first route the node returns.
         """
-        if not heals_path(self._traffic_policy) or not self._rate_limiter.try_consume(LANE_FLOOD):
+        if not heals_path(self._traffic_policy):
             return False
         prefix = node_config.get("pubkey_prefix", "")
         name = node_config.get("name", prefix)
@@ -1921,16 +1875,6 @@ class MeshCoreDataUpdateCoordinator(DataUpdateCoordinator):
 
         try:
             self.logger.debug(f"Sending telemetry request to node: {node_name} ({pubkey_prefix})")
-
-            if not self._rate_limiter.try_consume(lane):
-                self.logger.debug(f"Rate limited: skipping telemetry request to {node_name}")
-                if denial_counts_as_failure(self._traffic_policy):
-                    await self._record_node_failure(
-                        pubkey_prefix, failure_count + 1, update_interval, "telemetry"
-                    )
-                else:
-                    self._defer_node(pubkey_prefix, node_name, lane, OP_TELEMETRY)
-                return
 
             self._begin_attempt(pubkey_prefix, OP_TELEMETRY)
             telemetry_event = await self.api.req_telemetry(contact)
@@ -2170,7 +2114,7 @@ class MeshCoreDataUpdateCoordinator(DataUpdateCoordinator):
         node_loops = (
             ("status", self._tracked_repeaters, NODE_REPEATER,
              self._active_repeater_tasks, self._next_repeater_update_times,
-             None, True, True, auto_disable_applies(self._traffic_policy, NODE_REPEATER),
+             None, True, True, False,
              ("update_repeater_{name}",
               "Update task for repeater %s still running, skipping",
               "Repeater update task for %s failed with exception: %s",
@@ -2179,7 +2123,7 @@ class MeshCoreDataUpdateCoordinator(DataUpdateCoordinator):
             ("repeater_telemetry", self._tracked_repeaters, NODE_REPEATER,
              self._active_telemetry_tasks, self._next_telemetry_update_times,
              CONF_REPEATER_TELEMETRY_ENABLED, False,
-             auto_disable_applies(self._traffic_policy, NODE_REPEATER, telemetry=True), False,
+             False, False,
              ("telemetry_{name}",
               "Telemetry task for %s still running, skipping",
               "Telemetry update task for %s failed with exception: %s",
@@ -2188,7 +2132,7 @@ class MeshCoreDataUpdateCoordinator(DataUpdateCoordinator):
             ("client_telemetry", self._tracked_clients, NODE_CLIENT,
              self._active_telemetry_tasks, self._next_telemetry_update_times,
              None, True, True,
-             auto_disable_applies(self._traffic_policy, NODE_CLIENT, telemetry=True),
+             False,
              ("client_telemetry_{name}",
               "Client telemetry task for %s still running, skipping",
               "Client telemetry update task for %s failed with exception: %s",
@@ -2220,30 +2164,6 @@ class MeshCoreDataUpdateCoordinator(DataUpdateCoordinator):
                     continue
                 if enabled_key is not None and not node_config.get(enabled_key, False):
                     continue
-                if skip_auto_disabled and pubkey_prefix in self._auto_disabled_devices:
-                    continue
-
-                if may_auto_disable:
-                    last_success = self._last_successful_request.get(
-                        pubkey_prefix, self._coordinator_start_time
-                    )
-                    idle_hours = (current_time - last_success) / 3600
-                    if idle_hours >= AUTO_DISABLE_HOURS:
-                        # Governed persists the set, so a restart does not bring it back.
-                        resume = (
-                            "Edit the node or wait for its next advert to resume."
-                            if self._traffic_policy == POLICY_GOVERNED
-                            else "This will reset on restart."
-                        )
-                        _LOGGER.warning(
-                            f"{kind.capitalize()} {node_name} has had no successful requests "
-                            f"in {idle_hours:.1f} hours. Automatically disabling to reduce "
-                            f"network traffic. {resume}"
-                        )
-                        self._auto_disabled_devices.add(pubkey_prefix)
-                        self._save_traffic_state()
-                        continue
-
                 task = tasks.get(pubkey_prefix)
                 if task is not None:
                     if not task.done():

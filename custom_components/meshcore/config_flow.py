@@ -68,7 +68,6 @@ from .const import (
     CONF_TCP_HOST,
     CONF_TCP_PORT,
     CONF_TRACKED_CLIENTS,
-    CONF_TRAFFIC_POLICY,
     CONF_USB_PATH,
     CONNECTION_TIMEOUT,
     CONNECTION_TYPE_BLE,
@@ -88,16 +87,6 @@ from .const import (
     NodeType,
 )
 from .radio import RadioSession
-from .traffic import (
-    OP_FIRMWARE,
-    OP_LOGIN,
-    POLICY_GOVERNED,
-    POLICY_LEGACY,
-    TRAFFIC_POLICIES,
-    classify_lane,
-    resolve_policy,
-)
-
 _LOGGER = logging.getLogger(__name__)
 
 class CannotConnect(HomeAssistantError):
@@ -158,23 +147,6 @@ def _contact_discovery_mode_selector() -> SelectSelector:
 def _password_selector() -> TextSelector:
     """Masked input for a repeater password; a blank field keeps the stored one."""
     return TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
-
-
-def _traffic_policy_selector(current: str) -> SelectSelector:
-    """Build the translation-keyed select for the mesh traffic policy.
-
-    Labels come from the selector translation key; the stored value is the
-    machine string ("legacy" / "governed"). Legacy is deprecated: only an entry
-    that still runs it is offered it, so leaving it is one-way.
-    """
-    options = list(TRAFFIC_POLICIES) if current == POLICY_LEGACY else [POLICY_GOVERNED]
-    return SelectSelector(
-        SelectSelectorConfig(
-            options=options,
-            mode=SelectSelectorMode.DROPDOWN,
-            translation_key="traffic_policy",
-        )
-    )
 
 
 async def validate_common(api: RadioSession) -> dict[str, Any]:
@@ -627,7 +599,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     def _rearm_node(self, node: dict[str, Any]) -> None:
         """Resume an auto-disabled node when the user saves it, changed or not."""
         coordinator = self.hass.data.get(DOMAIN, {}).get(self.config_entry.entry_id)
-        if coordinator is not None and resolve_policy(self.config_entry) == POLICY_GOVERNED:
+        if coordinator is not None:
             coordinator.seed_tracked_node(node.get("pubkey_prefix", ""))
 
     def _ensure_options_loaded(self) -> None:
@@ -816,14 +788,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             errors["base"] = "Contact not found"
             return self._show_add_repeater_form(repeater_dict, errors, user_input)
             
-        lane = classify_lane(OP_LOGIN, contact)
-        wait = coordinator.check_interactive_budget(lane)
-        if wait:
-            errors["base"] = (
-                f"Mesh traffic {lane} lane is empty. Try again in {int(wait)} seconds."
-            )
-            return self._show_add_repeater_form(repeater_dict, errors, user_input)
-
         result = await session.login(contact, password)
         if not result:
             _LOGGER.error("Login to repeater failed or timed out")
@@ -834,10 +798,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         # Login succeeded; the version query is best effort, pays for its own
         # send, and its answer is an observation kept on the coordinator
         # rather than in the entry.
-        if not coordinator.check_interactive_budget(classify_lane(OP_FIRMWARE, contact)):
-            ver = await self._query_repeater_firmware(pubkey_prefix, authenticate=False)
-            if ver != "Unknown":
-                coordinator.set_repeater_firmware(pubkey_prefix, ver)
+        ver = await self._query_repeater_firmware(pubkey_prefix, authenticate=False)
+        if ver != "Unknown":
+            coordinator.set_repeater_firmware(pubkey_prefix, ver)
 
         # Add the new repeater subscription with pubkey_prefix
         self.repeater_subscriptions.append({
@@ -1032,7 +995,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_EXPOSE_SECRETS,
                     CONF_AUTO_CLEANUP_STALE_NEIGHBORS,
                     CONF_STALE_NEIGHBOR_DAYS,
-                    CONF_TRAFFIC_POLICY,
                 )
                 if key in user_input
             }
@@ -1045,8 +1007,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             return await self.async_step_init()
 
         settings = Settings.from_entry(self.config_entry)
-        current_traffic_policy = resolve_policy(self.config_entry)
-
         return self.async_show_form(
             step_id="global_settings",
             data_schema=vol.Schema({
@@ -1068,9 +1028,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(CONF_EXPOSE_SECRETS, default=settings.expose_secrets): cv.boolean,
                 vol.Optional(CONF_AUTO_CLEANUP_STALE_NEIGHBORS, default=settings.auto_cleanup_stale_neighbors): cv.boolean,
                 vol.Optional(CONF_STALE_NEIGHBOR_DAYS, default=settings.stale_neighbor_days): vol.All(cv.positive_int, vol.Range(min=1, max=365)),
-                vol.Optional(CONF_TRAFFIC_POLICY, default=current_traffic_policy): _traffic_policy_selector(
-                    current_traffic_policy
-                ),
             }),
         )
 
@@ -1347,14 +1304,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             return
 
         contact = coordinator.api.contact_by_prefix(pubkey_prefix)
-        wait = coordinator.check_interactive_budget(classify_lane(OP_FIRMWARE, contact))
-        if wait:
-            _LOGGER.info(
-                "Skipped firmware query for %s: mesh budget is short for %d seconds",
-                pubkey_prefix, int(wait),
-            )
-            return
-
         version = await self._query_repeater_firmware(pubkey_prefix)
         if version == "Unknown":
             return

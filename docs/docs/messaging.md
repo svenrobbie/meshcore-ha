@@ -34,7 +34,6 @@ What happens after a send:
 
 - When the companion accepts the message, the integration fires `meshcore_message_sent`. This event does not confirm delivery.
 - If the message does not leave the companion, the integration fires `meshcore_message_send_failed`, and `reason` gives the cause. The call does not raise an error, except for a traffic policy refusal.
-- Under Governed, each message uses one credit from the messages lane. See [Mesh Traffic Policy](traffic-policy.md).
 - A message that you send with `execute_command` (for example `send_msg`) fires no events and makes no logbook entry.
 
 For the event order, see [Message event order](events.md#message-event-order).

@@ -106,8 +106,8 @@ def test_denial_is_a_failure_only_under_legacy() -> None:
     assert traffic.denial_counts_as_failure(GOVERNED) is False
 
 
-def test_legacy_auto_disable_reaches_repeaters_in_the_status_loop_only() -> None:
-    assert traffic.auto_disable_applies(LEGACY, traffic.NODE_REPEATER) is True
+def test_auto_disable_is_disabled_for_every_policy() -> None:
+    assert traffic.auto_disable_applies(LEGACY, traffic.NODE_REPEATER) is False
     assert (
         traffic.auto_disable_applies(LEGACY, traffic.NODE_REPEATER, telemetry=True) is False
     )
@@ -117,10 +117,10 @@ def test_legacy_auto_disable_reaches_repeaters_in_the_status_loop_only() -> None
 
 @pytest.mark.parametrize("node_type", [traffic.NODE_REPEATER, traffic.NODE_CLIENT])
 @pytest.mark.parametrize("telemetry", [False, True])
-def test_governed_auto_disable_covers_both_types_in_both_loops(
+def test_governed_auto_disable_is_disabled(
     node_type: str, telemetry: bool
 ) -> None:
-    assert traffic.auto_disable_applies(GOVERNED, node_type, telemetry=telemetry) is True
+    assert traffic.auto_disable_applies(GOVERNED, node_type, telemetry=telemetry) is False
 
 
 
@@ -165,7 +165,7 @@ def test_governed_lane_rates_are_flat_and_do_not_move() -> None:
     }
 
 
-def test_legacy_pools_every_lane_into_one_bucket(clock) -> None:
+def test_budgets_allow_unmetered_requests(clock) -> None:
     budget = traffic.MeshBudget(LEGACY)
     assert budget.get_tokens() == 20
 
@@ -173,39 +173,24 @@ def test_legacy_pools_every_lane_into_one_bucket(clock) -> None:
         assert budget.try_consume(lane) is True
     assert budget.get_tokens() == 17
 
-    while budget.try_consume(traffic.LANE_DIRECT):
-        pass
-    assert budget.get_tokens() == 0
-    assert budget.try_consume(traffic.LANE_MESSAGES) is False
-    assert budget.next_eligible(traffic.LANE_FLOOD) == 120.0
-
-    clock.value += 120
-    assert budget.try_consume(traffic.LANE_FLOOD) is True
+    for _ in range(100):
+        assert budget.try_consume(traffic.LANE_DIRECT) is True
 
 
-def test_governed_lanes_are_independent(clock) -> None:
+def test_governed_policy_does_not_enforce_lane_budgets(clock) -> None:
     budget = traffic.MeshBudget(GOVERNED)
 
-    for _ in range(5):
+    for _ in range(100):
         assert budget.try_consume(traffic.LANE_FLOOD) is True
-    assert budget.try_consume(traffic.LANE_FLOOD) is False
-    assert budget.next_eligible(traffic.LANE_FLOOD) == 180.0
-
-    assert budget.try_consume(traffic.LANE_DIRECT) is True
-    assert budget.try_consume(traffic.LANE_MESSAGES) is True
-    assert budget.next_eligible(traffic.LANE_DIRECT) == 0.0
-
-    clock.value += 180
-    assert budget.try_consume(traffic.LANE_FLOOD) is True
 
 
 def test_governed_sensor_state_reports_direct_credits(clock) -> None:
     budget = traffic.MeshBudget(GOVERNED)
     assert budget.get_tokens() == 20
     assert budget.try_consume(traffic.LANE_DIRECT) is True
-    assert budget.get_tokens() == 19
+    assert budget.get_tokens() == 20
     assert budget.try_consume(traffic.LANE_FLOOD) is True
-    assert budget.get_tokens() == 19
+    assert budget.get_tokens() == 20
 
 
 def test_governed_attributes_expose_every_lane_rate(clock) -> None:

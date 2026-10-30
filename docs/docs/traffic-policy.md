@@ -4,24 +4,13 @@ sidebar_position: 5
 
 # Mesh Traffic Policy
 
-The traffic policy limits the requests that the integration sends over the mesh: polls, logins, neighbor pages, path discoveries and messages. New entries use the **Governed** policy. For the terms on this page, see [Concepts](concepts.md).
+Mesh traffic budgets are disabled. The integration does not meter or defer polls, logins, neighbor pages, path discoveries or messages. The companion still chooses a known route when available and floods when it has no route. For route terms, see [Concepts](concepts.md).
 
-## Why the integration limits mesh traffic
-
-The mesh is shared. All nodes in range use one radio channel, and every repeater in range retransmits each flood request. Uncontrolled polls and retry loops from one installation can congest a busy mesh. Then the messages of other users do not get through.
-
-Governed protects the mesh:
-
-- It sets a fixed limit on the flood traffic of each companion.
-- It gives routed requests a larger budget, because only the repeaters on the route retransmit them.
-- It repairs a broken route immediately, in place of repeated floods.
-- It backs off from nodes that do not answer.
-
-On a busy mesh in September 2026, one installation at the full flood budget added approximately 2% to a channel load of 22%.
+## Route behavior
 
 ## Policy setting {#choosing-a-policy}
 
-The setting is **Global Settings > Mesh Traffic Policy**. For installs from 2.x that still use the deprecated Legacy policy, see [Legacy traffic policy](legacy-traffic-policy.md).
+Older versions exposed a Mesh Traffic Policy option. It no longer controls request limits.
 
 ## Routed and flood requests
 
@@ -48,9 +37,9 @@ flowchart LR
 
 A contact has a known route when its `out_path_len` is 0 or more. The value 0 means that the companion hears the contact directly. The value `-1` means no route, so the request floods.
 
-## The three lanes
+## Former traffic budgets (inactive)
 
-All tracked nodes share one budget. If a lane is empty, the integration defers the poll.
+Older releases used three budgets. These are documented below for historical reference only; current requests are not metered or deferred.
 
 | Lane | Burst capacity | Refill | One credit every | Carries |
 |---|---|---|---|---|
@@ -98,7 +87,7 @@ Each request in this table uses one credit:
 
 Other `execute_command` commands do not use credit.
 
-### When a lane is empty {#when-a-lane-runs-dry}
+### Former behavior when a lane was empty {#when-a-lane-runs-dry}
 
 The integration never sends an automatic poll without credit. It **defers** the poll to the time of the next credit of the lane, and records no failure. It logs this at INFO, one time per node per lane every 10 minutes:
 
@@ -131,7 +120,7 @@ A poll fails when the node does not answer, or when it sends a status with an up
 | 1 or more consecutive failures | Retry. See [Retry spacing](#retry-spacing). |
 | 3 or more failures with no answer, and a known route | Reset the route. Then start [route healing](#route-healing-governed). |
 | 5 or more status failures of a repeater | Send a new login before the next status poll, a maximum of one time each hour. The login uses the lane of that poll. |
-| No successful request for 120 hours | [Auto-disable](#auto-disable) the node |
+| No successful request for 120 hours | Older releases auto-disabled the node; current releases continue polling. |
 
 ### Retry spacing
 
@@ -144,7 +133,7 @@ Example: for a 30-minute poll interval, the routed retries come 58 s, 116 s and 
 
 ### Route healing {#route-healing-governed}
 
-After a route reset, the integration immediately sends up to three **path discoveries**. A path discovery asks the mesh for a new route. The full burst costs one flood credit.
+Older governed releases sent up to three **path discoveries** after a route reset. Current releases do not meter that request.
 
 ```mermaid
 sequenceDiagram
@@ -186,7 +175,7 @@ To send requests through a specific repeater:
 
 If you do not do step 2, three failures in a row will reset the route that you set.
 
-### Auto-disable
+### Former auto-disable behavior
 
 When a repeater or a client has no successful request for **120 hours**, the integration disables its status and telemetry polls. The count starts when the entry starts, or when you add or edit the node. The log shows a warning:
 
@@ -201,11 +190,13 @@ The node stays disabled after a restart. It resumes when one of these occurs:
 
 ## State across restarts
 
-Approximately 30 seconds after a change, the integration saves the node schedules, the failure counts, the auto-disabled nodes and the lane credits. At startup, it restores them and refills each lane for the downtime. Thus a restart does not give a new burst or reset a backoff.
+Older governed releases saved lane credits and auto-disabled nodes. Current releases do not enforce traffic budgets or auto-disable nodes.
 
 ## Monitor the budget {#watching-the-budget}
 
-The **Request Rate Limiter** sensor, for example `sensor.meshcore_abc123_rate_limiter_tokens_mynode`, shows the credits of the direct lane. Its attributes:
+The **Request Rate Limiter** sensor is retained for dashboard compatibility. It does not represent an active limit.
+
+Older sections below describe behavior from releases where traffic budgets were active.
 
 | Attribute | Meaning |
 |---|---|
@@ -216,7 +207,7 @@ The **Request Rate Limiter** sensor, for example `sensor.meshcore_abc123_rate_li
 | `flood_next_eligible`, `direct_next_eligible`, `messages_next_eligible` | Estimated ISO time (UTC) of the next credit, or `null` when the lane has a credit now |
 | `deferred_nodes` | Each node that waits now, as `{name, lane, until}` |
 
-The recorder does not save the credit, next-eligible or `deferred_nodes` attributes.
+These attributes describe historical budget reporting only.
 
 To share the budget and the schedule of each node, download the diagnostics. See [Download diagnostics](troubleshooting.md#download-diagnostics).
 

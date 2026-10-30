@@ -159,9 +159,9 @@ actions:
 mode: queued
 ```
 
-### Continue when the traffic policy refuses a send
+### Continue after a send error
 
-Under the Governed traffic policy, a send fails when the messages lane is empty, and the error stops the automation. Set `continue_on_error: true` to continue. See [Mesh Traffic Policy](traffic-policy.md).
+Traffic budgets are disabled. For other send errors, set `continue_on_error: true` if the automation should continue.
 
 ```yaml
 alias: MeshCore hourly status message
@@ -235,7 +235,7 @@ The event fires only for commands that run with `record_to_console: true`. A fir
 
 ### Send an advert on a schedule
 
-This example sends a flood advert every 6 hours. Under Governed, each advert takes one credit from the flood lane. Do not send adverts often, because every repeater retransmits a flood advert.
+This example sends a flood advert every 6 hours. Do not send adverts often, because every repeater retransmits a flood advert.
 
 ```yaml
 alias: MeshCore scheduled advert

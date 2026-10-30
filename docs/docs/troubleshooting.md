@@ -51,7 +51,7 @@ The file contains:
 
 - The integration and Home Assistant versions, and the entry settings.
 - The connection: type, status, firmware, model and node name.
-- The traffic policy: the credits of each lane and the nodes that wait for a credit.
+- Traffic policy state from older versions, if present.
 - For each tracked repeater and client: the update interval, the time of the next poll, the failures in sequence, the auto-disable status, the route and the request counts.
 - The number of contacts, entities and devices, and the size of each runtime store.
 
@@ -79,7 +79,6 @@ The integration removes passwords, private keys, channel secrets, tokens, MQTT u
 | **Add Repeater Station** shows "Contact not found" | The node is a discovered contact | Add the node to the companion first. See [Contact Management](contacts.md). |
 | "Device not connected" | The companion is not connected | Fix the [connection](#connection), then submit again |
 | "Failed to log in to repeater" | Wrong password, or no answer | Check the password, power and range. For a node without a password, check that its ACL allows your companion. |
-| "Mesh traffic `<lane>` lane is empty. Try again in `<seconds>` seconds." | The lane has no credit for the login | Wait for the time in the message. Then submit again. See [Mesh Traffic Policy](traffic-policy.md#when-a-lane-runs-dry). |
 | A tracked client never answers | Not an added contact, or its ACL does not allow your companion | Add the client to the companion. Check its ACL. |
 
 ## Repeaters and polling
@@ -90,23 +89,19 @@ The integration removes passwords, private keys, channel secrets, tokens, MQTT u
 | Telemetry sensors unavailable or missing | No reading in 3 x the interval. Sensors appear only at the first reading. | Wait one poll cycle. For a repeater, enable **Enable Telemetry Polling**. |
 | **Online** is `off` | No successful request in 2.5 x the interval | See the rows for failed polls |
 | Log: `Login to repeater myrepeater failed or timed out` | The password changed, or no answer | Enter the new password in **Manage Monitored Devices** |
-| **Request Failures** increases often | The node does not answer, because of a weak radio link or a bad route. A poll that waits for credit is not a failure. | Look at **Path Length** and **Routing Path**. To use a better route, see [Pin a route](traffic-policy.md#pinning-a-route-and-turning-off-route-resets). |
+| **Request Failures** increases often | The node does not answer, because of a weak radio link or a bad route. | Look at **Path Length** and **Routing Path**. |
 | Route healing finds the same weak route | The integration keeps the first route that answers | Set the route with `change_contact_path`, then enable **Disable Path Reset**. See [Pin a route](traffic-policy.md#pinning-a-route-and-turning-off-route-resets). |
-| A node gets no more polls. Log: `... no successful requests in 120.0 hours. Automatically disabling ...`. | Auto-disable | Edit the node in **Manage Monitored Devices** and select **Submit**, or wait for its next advert. See [Auto-disable](traffic-policy.md#auto-disable). |
-| No firmware version on the repeater device | No credit, or the query timed out | Press **Refresh firmware version** |
+| No firmware version on the repeater device | The query timed out | Press **Refresh firmware version** |
 | No neighbor sensors | **Enable Neighbor Entities** is off, firmware older than 1.14.0, or no successful status poll | Enable the option and wait for a status poll. See [Repeater Neighbors](repeater-neighbors.md). |
 | A neighbor sensor is unavailable | Not heard for 72 hours | No fix is necessary. Enable **Auto-Remove Stale Neighbors** to remove old neighbors. |
 
 ## Traffic policy
 
-For installs from 2.x that still use the deprecated Legacy policy, see [Legacy traffic policy](legacy-traffic-policy.md).
+Mesh traffic budgets are disabled. The Request Rate Limiter sensor remains for dashboard compatibility but does not report an active limit.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| A service call or `execute_command` fails with `Mesh traffic <lane> lane is empty; try again in <seconds> seconds` | The lane has no credit. A service call cannot wait. | Wait for the time in the message. Send fewer requests. See [When a lane is empty](traffic-policy.md#when-a-lane-runs-dry). |
-| An automation stops at a send action | The lane error stops it | Set `continue_on_error: true` on the action |
-| A poll is late. Log: `Deferring status for myrepeater (flood lane empty, next at ...)`. | The flood lane is empty. No failure is recorded. | No fix is necessary. Track fewer nodes that have no route. |
-| **Request Rate Limiter** is often at 0 | The routed requests to your tracked nodes use the credits of the direct lane faster than the lane refills (120 credits each hour) | Increase **Telemetry Refresh Rate (seconds)** or **Update Frequency (seconds)**. Disable **Enable Telemetry Polling** on the repeaters that do not need it. See [Monitor the budget](traffic-policy.md#watching-the-budget). |
+| Requests are not being sent | The integration or radio is disconnected, or the target does not answer | Check the connection and the node's route and availability. |
 
 ## Messages and delivery
 

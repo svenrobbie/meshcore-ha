@@ -298,10 +298,10 @@ async def test_client_telemetry_ladder_pins_its_own_counters(
     assert coordinator._reliability_stats[f"{CLIENT_PREFIX}_request_failures"] == 4
 
 
-async def test_tick_auto_disables_only_repeaters_and_only_the_status_loop(
+async def test_tick_does_not_auto_disable_idle_nodes(
     mesh: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The legacy quirks: clients never auto-disable, telemetry ignores the set."""
+    """Idle nodes continue to be polled."""
     coordinator, radio, clock = mesh.coordinator, mesh.radio, mesh.clock
     started: list[str] = []
 
@@ -325,5 +325,9 @@ async def test_tick_auto_disables_only_repeaters_and_only_the_status_loop(
     await coordinator._async_update_data()
     await asyncio.sleep(0)
 
-    assert coordinator._auto_disabled_devices == {REPEATER_PREFIX}
-    assert started == [f"telemetry:{REPEATER_CONFIG['name']}", f"telemetry:{CLIENT_CONFIG['name']}"]
+    assert coordinator._auto_disabled_devices == set()
+    assert started == [
+        f"status:{REPEATER_CONFIG['name']}",
+        f"telemetry:{REPEATER_CONFIG['name']}",
+        f"telemetry:{CLIENT_CONFIG['name']}",
+    ]

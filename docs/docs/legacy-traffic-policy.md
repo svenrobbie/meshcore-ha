@@ -31,21 +31,6 @@ The Legacy traffic policy is deprecated and will be removed in a future release.
 | State across restarts | Not saved. A restart resets the budget, the schedules and the auto-disabled nodes. |
 | Request Rate Limiter sensor | Shows the single bucket. It has no attributes. |
 
-## Before you change to Governed
+## Current behavior
 
-Do these steps before the change. You cannot change back to Legacy.
-
-1. Add `continue_on_error: true` to the automation actions that send messages or mesh commands. Under Governed, service calls use credit. If the lane is empty, the call fails with `Mesh traffic <lane> lane is empty; try again in <seconds> seconds`.
-2. Update the dashboards and alerts that use the **Request Rate Limiter** sensor. Its state changes from the single bucket to the credits of the direct lane. See [Monitor the budget](traffic-policy.md#watching-the-budget).
-
-Under Governed, [auto-disable](traffic-policy.md#auto-disable) also covers clients and stays after a restart. A node resumes when you edit it or when the companion hears its next advert.
-
-**Add Repeater Station** also uses credit under Governed. If the lane is empty, the form shows an error. Wait, then submit again.
-
-## Change to Governed
-
-1. Go to **Settings > Devices & services > MeshCore > Configure > Global Settings**.
-2. Set **Mesh Traffic Policy** to **Governed**.
-3. Select **Submit**.
-
-The change applies immediately, without a reload.
+Traffic budgets and auto-disable are disabled in current releases. The former policy setting is retained on existing entries for compatibility and no longer appears in Global Settings.

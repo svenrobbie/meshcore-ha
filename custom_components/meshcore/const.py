@@ -211,9 +211,8 @@ CONNECTION_TIMEOUT: Final = 10  # seconds
 RATE_LIMITER_CAPACITY: Final = 20
 RATE_LIMITER_REFILL_RATE_SECONDS: Final = 120
 
-# Mesh traffic policy. "legacy" keeps every scheduling and rate-limiting number
-# the integration has always used; "governed" applies the cost-weighted budget
-# and the node schedule described in traffic.py.
+# Compatibility setting for traffic policy values stored on existing entries.
+# Request budgets are no longer enforced.
 CONF_TRAFFIC_POLICY: Final = "traffic_policy"
 # What an entry without the setting runs, so existing installs keep legacy.
 DEFAULT_TRAFFIC_POLICY: Final = "legacy"

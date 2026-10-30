@@ -9,7 +9,6 @@ To add a second companion, add the integration again. See [Installation](install
 
 - The public key of the companion identifies the entry. The same companion cannot have two entries ("Device is already configured").
 - Each entry has its own connection, settings, tracked nodes, MQTT brokers, discovered contacts and CLI Console.
-- Each entry has its own traffic policy budget. Two companions in the same area add two budgets of traffic to the mesh. See [Mesh Traffic Policy](traffic-policy.md).
 
 To find the `entry_id` and the `device_id`, see [Services: Select the entry](services.md#select-the-entry).
 
